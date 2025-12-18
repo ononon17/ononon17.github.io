@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><title>实验平台</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}body{background-color:#000;color:#fff;font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;overflow:hidden}
+#video-feed{height:100vh;width:100vw;overflow-y:scroll;scroll-snap-type:y mandatory;scroll-behavior:smooth;}
+#video-feed::-webkit-scrollbar{display:none}
+.video-item{position:relative;width:100%;height:100vh;scroll-snap-align:start;display:flex;justify-content:center;align-items:center;background:#000;overflow:hidden}
+video{width:100%;height:100%;object-fit:cover;display:block}
+.overlay{position:absolute;bottom:0;left:0;width:100%;height:100%;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,0.6),transparent 35%);display:flex;flex-direction:column;justify-content:flex-end;padding:20px 15px}
+.video-info{margin-bottom:50px;max-width:85%;text-shadow:0 1px 2px rgba(0,0,0,0.6)}.user-name{font-weight:700;font-size:16px;margin-bottom:6px;}.video-desc{font-size:14px;line-height:1.4;opacity:0.9;}
+.sidebar{position:absolute;right:10px;bottom:100px;display:flex;flex-direction:column;gap:20px;pointer-events:auto;align-items:center;z-index:10}
+.icon-btn{width:40px;height:40px;background:rgba(255,255,255,0.15);border-radius:50%;display:flex;justify-content:center;align-items:center;font-size:22px;backdrop-filter:blur(4px);cursor:pointer;transition:transform 0.2s; text-shadow: 0 1px 2px rgba(0,0,0,0.5);}
+.icon-btn:active{transform:scale(0.9)}
+.heart-icon.liked { color: #f44336; animation: heartBeat 0.4s ease-in-out; }
+.finish-btn {
+    width: 45px; height: 45px; margin-top: 10px;
+    background: #25D366; color: white; font-size: 12px; font-weight: bold;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    border-radius: 50%; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+#result-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 9999; justify-content: center; align-items: center; }
+.modal-content { background: #fff; color: #333; padding: 25px; border-radius: 16px; width: 85%; max-width: 320px; text-align: center; position: relative; }
+.code-box { background: #f1f3f5; padding: 12px; margin: 15px 0; font-family: monospace; font-size: 18px; letter-spacing: 1px; color: #2b2b2b; border: 1px dashed #ccc; border-radius: 8px; word-break: break-all; }
+.copy-btn { background: #25D366; color: white; border: none; padding: 12px 0; border-radius: 8px; font-size: 16px; font-weight: bold; width: 100%; cursor: pointer; margin-bottom: 10px; }
+.close-btn { background: transparent; color: #888; border: 1px solid #ddd; padding: 10px 0; border-radius: 8px; font-size: 14px; width: 100%; cursor: pointer; }
+.close-icon-top { position: absolute; top: 10px; right: 15px; font-size: 24px; color: #999; cursor: pointer; }
+.play-icon{position:absolute;font-size:60px;opacity:0;pointer-events:none;transition:opacity 0.2s;text-shadow:0 2px 10px rgba(0,0,0,0.5);z-index:5}
+.paused .play-icon{opacity:0.8}
+.big-heart-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 100px; color: rgba(244, 67, 54, 0.9); pointer-events: none; opacity: 0; z-index: 100; }
+.big-heart-popup.animate { animation: bigHeartPopup 0.7s ease-out forwards; }
+@keyframes heartBeat { 0%{transform:scale(1)} 50%{transform:scale(1.2)} 100%{transform:scale(1)} }
+@keyframes bigHeartPopup { 0%{opacity:0;transform:translate(-50%,-50%) scale(0.5) rotate(-15deg)} 20%{opacity:1;transform:translate(-50%,-50%) scale(1.2) rotate(0deg)} 100%{opacity:0;transform:translate(-50%,-50%) scale(1.5) rotate(0deg)} }
+</style>
+</head>
+<body>
+<div id="video-feed"></div>
+<div id="result-modal">
+    <div class="modal-content">
+        <div class="close-icon-top" onclick="closeModal()">×</div>
+        <div class="modal-title">实验结束</div>
+        <p style="font-size:13px; color:#666; margin-bottom:10px;">请复制下方验证码：</p>
+        <div class="code-box" id="code-display">...</div>
+        <button class="copy-btn" onclick="copyCode()">复制验证码</button>
+        <button class="close-btn" onclick="closeModal()">返回浏览</button>
+    </div>
+</div>
+<script>
+// 自动生成的视频配置
+const videoData = [
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%863.mov", desc: "你喜欢这个视频吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%861.mov", desc: "你觉得这个内容怎么样？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%8610.mov", desc: "这个视频符合你的喜好吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%862.mov", desc: "你对这个视频有什么看法？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%864.mov", desc: "这个视频吸引你吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E8%A1%A8.mov", desc: "广告：精湛工艺，时间之选 #手表", type: "ad", adProduct: "W" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%865.MOV", desc: "你觉得这个视频有趣吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%866.mov", desc: "你会给这个视频点赞吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%867.mov", desc: "看完后你的心情如何？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%868.MOV", desc: "这个视频让你感兴趣吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%869.mov", desc: "你觉得这个视频的质量如何？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E6%9C%BA.mov", desc: "广告：深层滋润，唤醒肌肤水润 #润肤乳", type: "ad", adProduct: "L" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A91.mov", desc: "你愿意推荐给朋友吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A92.mov", desc: "这个视频有触动你吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A93.mov", desc: "你觉得视频的内容实用吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A94.mov", desc: "这个视频的风格你喜欢吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A51.mov", desc: "你想看更多此类视频吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%B6%A6%E8%82%A4%E4%B9%B3.mov", desc: "广告：影像旗舰，记录美好生活 #手机", type: "ad", adProduct: "P" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A52.mov", desc: "你对这个视频的第一印象是什么？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A53.mov", desc: "这个视频让你产生共鸣了吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B1.mov", desc: "你觉得这个视频独特吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B2.mov", desc: "视频的内容清晰吗？", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B3.mov", desc: "总体来说，你觉得如何？", type: "content" }
+];
+
+// 核心逻辑
+let adStats = { "W": 0, "L": 0, "P": 0 }; 
+let currentAdEnterTime = 0;
+let currentAdProduct = null;
+let isViewingAd = false;
+const feed = document.getElementById('video-feed');
+let lastClickTime = 0;
+
+videoData.forEach((item, idx) => {
+    const d = document.createElement('div');
+    d.className = 'video-item';
+    if(item.type === 'ad') {
+        d.setAttribute('data-is-ad', 'true');
+        d.setAttribute('data-product', item.adProduct);
+    }
+    // 渲染文案
+    d.innerHTML = `<video src="${item.url}" loop playsinline webkit-playsinline></video><div class="play-icon">▶</div><div class="big-heart-popup">❤</div><div class="overlay"><div class="video-info"><div class="user-name">@用户_${1000 + idx}</div><div class="video-desc">${item.desc}</div></div></div><div class="sidebar"><div class="icon-btn heart-icon">❤</div><div class="icon-btn">💬</div><div class="icon-btn share-btn" onclick="alert('分享成功 (模拟)')">🔗</div><div class="finish-btn" onclick="openModal()">✔<br>结束</div></div>`;
+    const v = d.querySelector('video');
+    const heartBtn = d.querySelector('.icon-btn.heart-icon');
+    const bigHeart = d.querySelector('.big-heart-popup');
+    d.addEventListener('click', ev => {
+        if(ev.target.closest('.sidebar')) return;
+        const now = Date.now();
+        if (now - lastClickTime < 300) {
+            bigHeart.classList.remove('animate'); void bigHeart.offsetWidth; bigHeart.classList.add('animate');
+            heartBtn.classList.add('liked');
+        } else {
+            v.paused ? (v.play(), d.classList.remove('paused')) : (v.pause(), d.classList.add('paused'));
+        }
+        lastClickTime = now;
+    });
+    heartBtn.addEventListener('click', () => heartBtn.classList.toggle('liked'));
+    feed.appendChild(d);
+});
+
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        const v = entry.target.querySelector('video');
+        const isAd = entry.target.getAttribute('data-is-ad') === 'true';
+        const productName = entry.target.getAttribute('data-product');
+        if (entry.isIntersecting) {
+            v.play().catch(()=>{});
+            entry.target.classList.remove('paused');
+            if (isAd) {
+                currentAdEnterTime = Date.now();
+                currentAdProduct = productName;
+                isViewingAd = true;
+            }
+        } else {
+            v.pause();
+            entry.target.classList.add('paused');
+            if (isAd && isViewingAd && currentAdProduct === productName) {
+                adStats[productName] += (Date.now() - currentAdEnterTime);
+                isViewingAd = false;
+            }
+        }
+    });
+}, { threshold: 0.6 });
+document.querySelectorAll('.video-item').forEach(el => observer.observe(el));
+
+function openModal() {
+    let tempStats = { ...adStats };
+    if (isViewingAd && currentAdProduct) tempStats[currentAdProduct] += (Date.now() - currentAdEnterTime);
+    const code = `W${(tempStats["W"]/1000).toFixed(1)}-L${(tempStats["L"]/1000).toFixed(1)}-P${(tempStats["P"]/1000).toFixed(1)}`;
+    const randomPrefix = Math.random().toString(36).substring(2, 5).toUpperCase();
+    document.getElementById('code-display').innerText = `${randomPrefix}-${code}`;
+    document.getElementById('result-modal').style.display = 'flex';
+}
+function closeModal() { document.getElementById('result-modal').style.display = 'none'; }
+function copyCode() {
+    navigator.clipboard.writeText(document.getElementById('code-display').innerText).then(() => document.querySelector('.copy-btn').innerText = "已复制！").catch(() => alert("复制失败"));
+}
+</script>
+</body>
+</html>

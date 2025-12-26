@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>浏览页面</title>
+<style>
+/* --- 全局设置 --- */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background-color:#f6f7f9;color:#333;font-family:sans-serif; overflow: hidden; height: 100vh; width: 100vw; position: fixed;}
+
+/* --- 页面容器 --- */
+.page-container {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+    transition: transform 0.3s ease-out;
+}
+#grid-page-container { z-index: 1; background-color:#f6f7f9; padding: 10px; padding-bottom: 80px; }
+
+#fullscreen-page-container { 
+    z-index: 2; 
+    background-color:#000; 
+    transform: translateX(100%); 
+    scroll-snap-type: y mandatory; 
+    overflow-y: scroll; 
+    height: 100vh;
+}
+#fullscreen-page-container.active { transform: translateX(0); }
+#fullscreen-page-container::-webkit-scrollbar { display: none; }
+
+/* --- 首页网格 --- */
+#grid-feed { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid-item { background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.05); position: relative; }
+.grid-video-wrapper { position: relative; width: 100%; padding-bottom: 133%; background: #000; pointer-events: none; }
+.grid-video-wrapper video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.grid-play-icon { position: absolute; top: 10px; right: 10px; color: white; font-size: 16px; }
+.card-footer { padding: 10px; }
+.video-desc-grid { font-size: 13px; line-height: 1.4; height: 36px; overflow: hidden; margin-bottom: 8px; font-weight: 500;}
+
+/* --- 全屏沉浸页 --- */
+.fs-video-item { 
+    position:relative;
+    width:100vw;
+    height:100vh;
+    scroll-snap-align: start; 
+    scroll-snap-stop: always;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:#000;
+}
+.fs-video-item video { width:100%; height:100%; object-fit:cover; }
+
+.overlay { position:absolute; bottom:0; left:0; width:100%; padding:40px 15px; background:linear-gradient(to top, rgba(0,0,0,0.7), transparent); pointer-events:none; color:#fff; }
+.sidebar-fs { position:absolute; right:10px; bottom:120px; display:flex; flex-direction:column; gap:20px; pointer-events:auto; }
+.icon-btn-fs { width:45px; height:45px; background:rgba(255,255,255,0.2); border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:20px; }
+
+/* 悬浮控制按钮 */
+.floating-finish-btn { position: fixed; right: 20px; bottom: 30px; z-index: 999; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.back-btn-global { position: fixed; top: 40px; left: 20px; z-index: 999; width: 35px; height: 35px; background: rgba(0,0,0,0.5); border-radius: 50%; display: none; align-items: center; justify-content: center; color: white; cursor: pointer; }
+
+/* 弹窗 */
+#result-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center; }
+.modal-content { background: #fff; padding: 30px; border-radius: 15px; width: 80%; text-align: center; }
+.code-box { background: #eee; padding: 15px; margin: 15px 0; font-weight: bold; font-size: 18px; }
+</style>
+</head>
+<body>
+
+<div id="grid-page-container" class="page-container">
+    <div id="grid-feed"></div>
+</div>
+
+<div id="fullscreen-page-container" class="page-container">
+    <div id="fullscreen-feed"></div>
+</div>
+
+<div id="global-finish-btn" class="floating-finish-btn" onclick="openModal()">✔<br>结束</div>
+<div id="global-back-btn" class="back-btn-global" onclick="exitFullScreen()">❮</div>
+
+<div id="result-modal">
+    <div class="modal-content">
+        <h3>实验结束</h3>
+        <p>请复制验证码并返回 Credamo</p>
+        <div class="code-box" id="code-display"></div>
+        <button onclick="copyCode()" style="padding:10px 20px; background:#25D366; color:white; border:none; border-radius:5px;">复制验证码</button>
+    </div>
+</div>
+
+<script>
+// --- 完整数据 ---
+const videoData = [
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%863.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%861.mov", desc: "讲真，看到这片云，你的心情变好了吗？☁️", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%8610.mov", desc: "这种慢节奏的古镇生活，是你向往的吗？🍵", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%862.mov", desc: "你有多久没有给自己放个假了？✈️", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%864.mov", desc: "猜猜这是大理的哪个角落？去过的举手🙋", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E8%A1%A8.mov", desc: "都在问链接？这款表的设计感真的绝了✨", type: "ad", adProduct: "W" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%865.MOV", desc: "这种天气，最适合发呆了，你觉得呢？☀️", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%866.mov", desc: "如果生活太累，就来这里躲一躲吧🏠", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%867.mov", desc: "这里的日落是不是很治愈？🌄", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%868.MOV", desc: "听，这是大理的声音，你喜欢吗？🌊", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%869.mov", desc: "答应我，这辈子一定要去一次大理好吗？🤝", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%B6%A6%E8%82%A4%E4%B9%B3.mov", desc: "换季皮肤干燥？试试这个，亲测好用！💧", type: "ad", adProduct: "L" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A91.mov", desc: "它的眼神有没有融化你的心？太乖了🥺", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A92.mov", desc: "我就问一句，谁能拒绝这样的小狗？🐶", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A93.mov", desc: "上班累了？看这个视频回回血🔋", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A94.mov", desc: "你是猫派还是狗派？评论区告诉我🐱🐶", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A51.mov", desc: "这种专注的感觉，你羡慕吗？🧶", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E6%9C%BA.mov", desc: "随手一拍就是大片，这像素你打几分？📷", type: "ad", adProduct: "P" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A52.mov", desc: "猜猜最后成品会是什么样子？🤔", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A53.mov", desc: "周末宅家做手工，是不是很解压？✂️", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B1.mov", desc: "强迫症表示看完这个视频极度舒适！✨", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B2.mov", desc: "这种丝滑的感觉，能不能治好你的精神内耗？🧠", type: "content" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B3.mov", desc: "深夜睡不着？看这个视频助眠吧😴", type: "content" }
+];
+
+const gridFeed = document.getElementById('grid-feed');
+const fsFeed = document.getElementById('fullscreen-feed');
+const fsContainer = document.getElementById('fullscreen-page-container');
+const backBtn = document.getElementById('global-back-btn');
+const finishBtn = document.getElementById('global-finish-btn');
+let fsVideoElements = [];
+
+// 初始化首页
+videoData.forEach((item, idx) => {
+    const d = document.createElement('div');
+    d.className = 'grid-item';
+    d.innerHTML = `<div class="grid-video-wrapper"><video src="${item.url}#t=0.1" muted></video><div class="grid-play-icon">▶</div></div><div class="card-footer"><div class="video-desc-grid">${item.desc}</div></div>`;
+    d.onclick = () => enterFullScreen(idx);
+    gridFeed.appendChild(d);
+});
+
+// 初始化全屏页
+videoData.forEach((item, idx) => {
+    const d = document.createElement('div');
+    d.className = 'fs-video-item';
+    if(item.type === 'ad') { d.dataset.isAd = "true"; d.dataset.product = item.adProduct; }
+    
+    // --- 强化点1：完全禁掉 autoplay，且初始必须是 muted ---
+    d.innerHTML = `<video src="${item.url}" loop playsinline muted></video><div class="overlay"><div class="user-name-fs">@用户_${idx}</div><div class="video-desc-fs">${item.desc}</div></div><div class="sidebar-fs"><div class="icon-btn-fs">❤</div><div class="icon-btn-fs">💬</div></div>`;
+    fsFeed.appendChild(d);
+    fsVideoElements.push(d);
+});
+
+function enterFullScreen(index) {
+    fsContainer.classList.add('active');
+    
+    setTimeout(() => {
+        fsVideoElements[index].scrollIntoView();
+        const v = fsVideoElements[index].querySelector('video');
+        
+        // --- 强化点2：用户产生了点击行为（enterFullScreen），此时解开静音是合法的且有声音 ---
+        v.muted = false; 
+        v.play().catch(e => console.log("播放被拦截"));
+    }, 50);
+
+    backBtn.style.display = 'flex';
+    finishBtn.style.display = 'none';
+}
+
+function exitFullScreen() {
+    fsContainer.classList.remove('active');
+    fsVideoElements.forEach(el => {
+        const v = el.querySelector('video');
+        v.pause();
+        v.muted = true; // 退出立刻静音
+    });
+    backBtn.style.display = 'none';
+    finishBtn.style.display = 'flex';
+}
+
+let adStats = { "W": 0, "L": 0, "P": 0 };
+let currentAdEnterTime = 0;
+let currentAdProduct = null;
+
+const obs = new IntersectionObserver(entries => {
+    // --- 强化点3：极其严格的判断。如果全屏层没激活，监视器哪怕触发了也禁止任何视频播放或取消静音 ---
+    if (!fsContainer.classList.contains('active')) {
+        entries.forEach(entry => {
+            const v = entry.target.querySelector('video');
+            v.pause();
+            v.muted = true;
+        });
+        return;
+    }
+
+    entries.forEach(entry => {
+        const v = entry.target.querySelector('video');
+        const isAd = entry.target.dataset.isAd === "true";
+        const prod = entry.target.dataset.product;
+
+        if(entry.isIntersecting) {
+            v.muted = false; 
+            v.play().catch(()=>{});
+            if(isAd) { currentAdEnterTime = Date.now(); currentAdProduct = prod; }
+        } else {
+            v.pause();
+            v.muted = true;
+            if(isAd && currentAdProduct === prod) {
+                adStats[prod] += (Date.now() - currentAdEnterTime);
+                currentAdProduct = null;
+            }
+        }
+    });
+}, { threshold: 0.5, root: fsContainer });
+
+fsVideoElements.forEach(el => obs.observe(el));
+
+function openModal() {
+    // 修正计算逻辑：将毫秒转为秒，保留一位小数，更直观
+    const code = `FIN-W${(adStats.W/1000).toFixed(1)}-L${(adStats.L/1000).toFixed(1)}-P${(adStats.P/1000).toFixed(1)}-${Math.floor(Math.random()*1000)}`;
+    document.getElementById('code-display').innerText = code;
+    document.getElementById('result-modal').style.display = 'flex';
+}
+
+function copyCode() {
+    navigator.clipboard.writeText(document.getElementById('code-display').innerText);
+    alert("验证码已复制，请返回问卷粘贴。");
+}
+</script>
+</body>
+</html>

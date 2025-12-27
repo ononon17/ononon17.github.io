@@ -3,21 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>单列实验 - 推荐页</title>
+<title>单列实验 - 推荐页(直入版)</title>
 <style>
-/* --- 样式保持不变 --- */
+/* --- 样式 --- */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans-serif; overflow: hidden; height: 100vh; width: 100vw; position: fixed;}
 
-#start-mask {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: #000; z-index: 9999;
-    display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff;
-}
-#start-btn {
-    padding: 15px 40px; background: #fe2c55; border: none; border-radius: 4px;
-    color: #fff; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer;
-}
+/* 删除 start-mask 相关样式 */
 
 #fullscreen-page-container { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -95,13 +87,13 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     transition: all 0.3s;
 }
-/* 关注：现在是灰色/弱化 */
+/* 关注：灰色/弱化 */
 .nav-item.inactive {
     color: rgba(255, 255, 255, 0.6);
     font-size: 16px;
     font-weight: 500;
 }
-/* 推荐：现在是高亮/白色 */
+/* 推荐：高亮/白色 */
 .nav-item.active {
     color: #ffffff;
     font-size: 18px;
@@ -116,12 +108,6 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 <div class="top-nav-bar">
     <div class="nav-item inactive">关注</div>
     <div class="nav-item active">推荐</div>
-</div>
-
-<div id="start-mask">
-    <h2>实验准备就绪</h2>
-    <p style="margin: 10px 0; opacity: 0.7; font-size: 14px;">请开启音量，点击下方按钮开始</p>
-    <button id="start-btn">开始浏览</button>
 </div>
 
 <div id="fullscreen-page-container">
@@ -258,7 +244,6 @@ videoData.forEach((item, idx) => {
 });
 
 // --- 3. 核心功能：全量顺序加载 & 播放控制 ---
-let isExperimentStarted = false;
 let currentActiveIndex = -1;
 
 let adStats = { "W": 0, "L": 0, "P": 0 };
@@ -266,7 +251,6 @@ let currentAdProduct = null;
 let currentAdStartTime = 0;
 
 // 新功能：链式自动加载 (解决黑屏)
-// 一旦开始，无论滑不滑，后台都会一个接一个把视频下载下来
 function startSequentialLoading(idx) {
     if (idx >= fsVideoElements.length) return; 
 
@@ -274,14 +258,12 @@ function startSequentialLoading(idx) {
     
     if (vid.dataset.src && !vid.src) {
         vid.src = vid.dataset.src; // 赋值 src，开始下载
-        // console.log("链式加载:", idx);
-        
         // 当这个视频元数据加载完，立刻去加载下一个
         vid.addEventListener('loadedmetadata', () => {
             startSequentialLoading(idx + 1);
         }, { once: true });
         
-        // 双保险：万一元数据加载慢，500ms后强行加载下一个，防止队列卡死
+        // 双保险：万一元数据加载慢，500ms后强行加载下一个
         setTimeout(() => {
             if (idx + 1 < fsVideoElements.length && !fsVideoElements[idx+1].querySelector('video').src) {
                 startSequentialLoading(idx + 1);
@@ -299,13 +281,13 @@ function playVideo(index) {
     const vid = container.querySelector('video');
     currentActiveIndex = index;
 
-    // 确保有src (链式加载应该已经处理了，这里兜底)
+    // 确保有src
     if (!vid.src && vid.dataset.src) vid.src = vid.dataset.src;
     
     vid.muted = false;
     container.classList.remove('paused'); // 确保没有暂停图标
     vid.play().catch(e => {
-        // 如果自动播放失败，显示图标
+        // 如果自动播放被阻止，显示播放图标
         container.classList.add('paused');
     });
 }
@@ -321,13 +303,11 @@ const observer = new IntersectionObserver(entries => {
 
         if(entry.isIntersecting) {
             // 滑入：播放
-            if (isExperimentStarted) {
-                playVideo(index);
-                
-                if (isAd) {
-                    currentAdProduct = prod;
-                    currentAdStartTime = Date.now();
-                }
+            playVideo(index);
+            
+            if (isAd) {
+                currentAdProduct = prod;
+                currentAdStartTime = Date.now();
             }
         } else {
             // 滑出：暂停并重置状态
@@ -345,12 +325,9 @@ const observer = new IntersectionObserver(entries => {
 
 fsVideoElements.forEach(el => observer.observe(el));
 
-// 启动逻辑
-document.getElementById('start-btn').addEventListener('click', function() {
-    isExperimentStarted = true;
-    document.getElementById('start-mask').style.display = 'none';
-    
-    // 1. 播放第一个
+// --- 自动启动逻辑 (无需点击开始) ---
+window.addEventListener('DOMContentLoaded', () => {
+    // 1. 播放第一个 (可能会被浏览器拦截，如果拦截则显示▶)
     playVideo(0);
     // 2. 启动后台全量下载
     startSequentialLoading(0);

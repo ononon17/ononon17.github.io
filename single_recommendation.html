@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>单列实验 - 关注页(流畅交互版)</title>
+<title>单列实验 - 推荐页</title>
 <style>
 /* --- 样式保持不变 --- */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -45,24 +45,21 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 }
 @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
 
-/* --- 新增：播放/暂停 状态图标 --- */
+/* 播放/暂停 状态图标 */
 .play-status-icon {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     width: 70px; height: 70px;
-    background: rgba(0, 0, 0, 0.4); /* 半透明黑底 */
+    background: rgba(0, 0, 0, 0.4); 
     border-radius: 50%;
     color: white;
     font-size: 30px;
     display: flex; justify-content: center; align-items: center;
     z-index: 5;
-    opacity: 0; /* 默认隐藏（播放时） */
+    opacity: 0; /* 默认隐藏 */
     transition: opacity 0.2s;
-    pointer-events: none; /* 让点击穿透到下层 */
+    pointer-events: none;
 }
-/* 当容器有 paused 类时，显示图标 */
-.fs-video-item.paused .play-status-icon {
-    opacity: 1;
-}
+.fs-video-item.paused .play-status-icon { opacity: 1; }
 
 .click-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 .overlay { position:absolute; bottom:0; left:0; width:100%; padding:40px 15px; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); pointer-events:none; color:#fff; z-index: 2;}
@@ -70,8 +67,8 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 .icon-btn-fs { width:48px; height:48px; background:rgba(255,255,255,0.15); border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:22px; backdrop-filter:blur(10px); color: #ffffff; cursor:pointer;}
 
 /* 交互反馈颜色 */
-.heart-btn.liked { color: #ff2442; } /* 点赞红 */
-.star-btn.active { color: #007bff; } /* 收藏蓝 */
+.heart-btn.liked { color: #ff2442; } 
+.star-btn.active { color: #007bff; }
 
 /* 结束浮窗 */
 .floating-finish-btn { position: fixed; right: 20px; bottom: 30px; z-index: 999; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
@@ -88,28 +85,28 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 /* 顶部导航栏样式 */
 .top-nav-bar {
     position: fixed; top: 0; left: 0; width: 100%; height: 60px;
-    z-index: 50; /* 在视频上层，mask下层 */
+    z-index: 50; 
     display: flex; justify-content: center; align-items: center; gap: 20px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent); /* 顶部渐变阴影 */
-    pointer-events: none; /* 让点击穿透 */
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+    pointer-events: none;
 }
 .nav-item {
     font-size: 17px; font-weight: 600; 
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     transition: all 0.3s;
 }
-/* 推荐：淡色 */
+/* 关注：现在是灰色/弱化 */
 .nav-item.inactive {
     color: rgba(255, 255, 255, 0.6);
     font-size: 16px;
     font-weight: 500;
 }
-/* 关注：高亮 */
+/* 推荐：现在是高亮/白色 */
 .nav-item.active {
     color: #ffffff;
     font-size: 18px;
     font-weight: 800;
-    border-bottom: 2px solid #fff; /* 下划线指示 */
+    border-bottom: 2px solid #fff;
     padding-bottom: 4px;
 }
 </style>
@@ -117,8 +114,8 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 <body>
 
 <div class="top-nav-bar">
-    <div class="nav-item active">关注</div>
-    <div class="nav-item inactive">推荐</div>
+    <div class="nav-item inactive">关注</div>
+    <div class="nav-item active">推荐</div>
 </div>
 
 <div id="start-mask">
@@ -151,7 +148,7 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 </div>
 
 <script>
-// --- 1. 数据定义 ---
+// --- 1. 数据定义 (阿里云链接) ---
 const rawData = [
      { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%863%20%282%29.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%861%20%281%29.mov", desc: "讲真，看到这片云，你的心情变好了吗？☁️" },
@@ -323,6 +320,7 @@ const observer = new IntersectionObserver(entries => {
         const prod = container.dataset.product;
 
         if(entry.isIntersecting) {
+            // 滑入：播放
             if (isExperimentStarted) {
                 playVideo(index);
                 
@@ -332,7 +330,7 @@ const observer = new IntersectionObserver(entries => {
                 }
             }
         } else {
-            // 滑出屏幕
+            // 滑出：暂停并重置状态
             v.pause();
             container.classList.remove('paused'); // 重置UI状态
             

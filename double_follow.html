@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>双列实验 - 关注页终极修复版</title>
+<title>双列实验 - 关注页(控时版)</title>
 <style>
 /* --- 全局样式 --- */
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -139,8 +139,15 @@ body { background-color: #f8f8f8; color: #333; font-family: -apple-system, Blink
     color: white; z-index: 204; pointer-events: none;
 }
 
-/* 结束浮窗 */
-.floating-finish-btn { position: fixed; right: 20px; bottom: 30px; z-index: 999; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+/* 结束浮窗 - 默认隐藏 (display: none) */
+.floating-finish-btn { 
+    position: fixed; right: 20px; bottom: 30px; z-index: 999; 
+    width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; 
+    display: none; /* 修改点：初始隐藏 */
+    flex-direction: column; align-items: center; justify-content: center; 
+    font-size: 12px; font-weight: bold; cursor: pointer; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+}
 
 /* 结果弹窗 - 包含关闭按钮 */
 #result-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; }
@@ -191,21 +198,21 @@ body { background-color: #f8f8f8; color: #333; font-family: -apple-system, Blink
     </div>
 </div>
 
-<div class="floating-finish-btn" onclick="showModal()">✔<br>结束</div>
+<div class="floating-finish-btn" id="float-btn" onclick="showManualFinish()">✔<br>结束</div>
 
 <div id="result-modal">
     <div class="modal-content">
-        <h3 style="margin-bottom: 5px;">确认结束实验?</h3>
-        <p style="font-size:12px; color:#666;">点击确认后将停止计时并生成验证码</p>
+        <h3 id="modal-title" style="margin-bottom: 5px;">确认结束实验?</h3>
+        <p id="modal-desc" style="font-size:12px; color:#666;">点击确认后将停止计时并生成验证码</p>
         
         <div id="result-area" style="display:none;">
             <div class="code-box" id="code-display"></div>
-            <button class="btn-confirm" onclick="copyCode()" style="width:100%">复制验证码</button>
+            <button class="btn-confirm" onclick="copyCode()" style="width:100%; margin-top:10px;">复制验证码</button>
         </div>
 
         <div class="modal-btns" id="action-btns">
-            <button class="btn-cancel" onclick="hideModal()">❌ 取消返回</button>
-            <button class="btn-confirm" onclick="confirmFinish()">✅ 确认提交</button>
+            <button class="btn-cancel" id="btn-cancel" onclick="hideModal()">❌ 取消返回</button>
+            <button class="btn-confirm" id="btn-confirm" onclick="confirmFinish()">✅ 确认提交</button>
         </div>
     </div>
 </div>
@@ -213,7 +220,7 @@ body { background-color: #f8f8f8; color: #333; font-family: -apple-system, Blink
 <script>
 // --- 1. 数据定义 (阿里云链接) ---
 const rawData = [
-    { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%863%20%282%29.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️" },
+     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%863%20%282%29.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%861%20%281%29.mov", desc: "讲真，看到这片云，你的心情变好了吗？☁️" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%8610%20%281%29.mov", desc: "这种慢节奏的古镇生活，是你向往的吗？🍵" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%862%20%281%29.mov", desc: "你有多久没有给自己放个假了？✈️" },
@@ -282,9 +289,7 @@ videoData.forEach((item, index) => {
     card.className = 'card-item';
     card.id = `card-${index}`;
     
-    // 核心修复：强制显示封面图
-    // #t=0.1 : 强制截取第一帧
-    // preload="auto" : 强制手机加载数据
+    // 强制显示封面图 #t=0.1
     card.innerHTML = `
         <div class="card-thumb">
             <video src="${item.url}#t=0.1" muted loop playsinline webkit-playsinline x5-video-player-type="h5" x5-playsinline="true" preload="auto" style="pointer-events:none; object-fit: cover;"></video>
@@ -306,7 +311,6 @@ videoData.forEach((item, index) => {
 
 // --- 3. 交互逻辑 (Interaction Logic) ---
 
-// A. 网格页点赞
 function toggleGridLike(e, index) {
     e.stopPropagation(); 
     interactionState[index].liked = !interactionState[index].liked;
@@ -315,7 +319,6 @@ function toggleGridLike(e, index) {
     else icon.classList.remove('active');
 }
 
-// B. 详情页点赞
 function toggleDetailLike() {
     if (currentPlayingIndex === -1) return;
     const index = currentPlayingIndex;
@@ -329,7 +332,6 @@ function toggleDetailLike() {
     else gridIcon.classList.remove('active');
 }
 
-// C. 详情页收藏 (变蓝)
 function toggleDetailCollect() {
     if (currentPlayingIndex === -1) return;
     const index = currentPlayingIndex;
@@ -345,13 +347,11 @@ function openDetail(index) {
     const item = videoData[index];
     currentPlayingIndex = index;
     
-    // 填充内容
     detailTitle.innerText = `@用户_${1000+index}`;
     detailDesc.innerText = item.desc;
     mainVideo.src = item.url;
     mainVideo.muted = false; 
     
-    // 还原交互状态
     if (interactionState[index].liked) detailHeart.classList.add('active');
     else detailHeart.classList.remove('active');
     
@@ -382,8 +382,79 @@ function closeDetail() {
     currentPlayingIndex = -1;
 }
 
-// --- 5. 弹窗控制 (带误触防护) ---
+// --- 5. 实验控制逻辑 (3分钟强制弹窗) ---
 
+// 设置实验时长 3分钟 = 180000 毫秒
+const EXPERIMENT_DURATION = 180000; 
+
+// 页面加载完毕后立即启动计时
+window.addEventListener('DOMContentLoaded', () => {
+    // 启动3分钟倒计时
+    setTimeout(forceTimeUp, EXPERIMENT_DURATION);
+});
+
+// 强制时间到
+function forceTimeUp() {
+    // 如果详情页开着，暂停视频
+    if (detailPage.classList.contains('active')) {
+        mainVideo.pause();
+        // 如果正在看广告，结算时间
+        if (currentTrackingProduct) {
+            const duration = Date.now() - currentTrackingStart;
+            adStats[currentTrackingProduct] += duration;
+            currentTrackingProduct = null;
+        }
+    }
+
+    // 生成代码并显示
+    generateCode();
+    
+    // 修改弹窗文案
+    document.querySelector('#result-modal h3').innerText = "浏览体验已完成";
+    document.querySelector('#result-modal p').innerText = "感谢您的参与，请复制下方代码。";
+    
+    // 显示结果区域
+    document.getElementById('action-btns').style.display = 'none'; 
+    document.getElementById('result-area').style.display = 'block';
+    
+    // 显示“暂不提交”按钮逻辑
+    const actionArea = document.getElementById('action-btns');
+    actionArea.style.display = 'flex';
+    document.getElementById('btn-confirm').style.display = 'none'; 
+    
+    const cancelBtn = document.getElementById('btn-cancel');
+    cancelBtn.innerText = "暂不提交，继续浏览";
+    cancelBtn.onclick = function() {
+        hideModal();
+        // 用户选择继续浏览后，显示右下角的浮动按钮
+        document.getElementById('float-btn').style.display = 'flex';
+        // 如果在详情页，恢复播放
+        if (detailPage.classList.contains('active') && mainVideo.src) {
+            mainVideo.play().catch(()=>{});
+            // 重新开始埋点计时（如果还在看刚才那个广告）
+            // 注意：这里简单处理，不再重复计入同一段广告时间，或者您也可以选择重新开始计时
+            // 为简化逻辑，继续浏览时不自动恢复广告计时，除非重新进入
+        }
+    };
+
+    showModal();
+}
+
+// 手动点击浮动按钮结束
+function showManualFinish() {
+    // 恢复弹窗默认状态
+    document.querySelector('#result-modal h3').innerText = "确认结束实验?";
+    document.querySelector('#result-modal p').innerText = "点击确认后将停止计时并生成验证码";
+    document.getElementById('result-area').style.display = 'none';
+    document.getElementById('action-btns').style.display = 'flex';
+    document.getElementById('btn-confirm').style.display = 'block';
+    document.getElementById('btn-cancel').innerText = "❌ 取消返回";
+    document.getElementById('btn-cancel').onclick = hideModal;
+
+    showModal();
+}
+
+// 弹窗控制
 const modal = document.getElementById('result-modal');
 const resultArea = document.getElementById('result-area');
 const actionBtns = document.getElementById('action-btns');
@@ -396,25 +467,33 @@ function hideModal() {
     modal.style.display = 'none';
 }
 
-function confirmFinish() {
-    if (detailPage.classList.contains('active') && currentTrackingProduct) {
-        const duration = Date.now() - currentTrackingStart;
-        adStats[currentTrackingProduct] += duration;
-        currentTrackingProduct = null;
-    }
-
-    mainVideo.pause();
-
+function generateCode() {
+    // 仅在手动确认时结算当前广告（forceTimeUp里已经结算过了，这里是兜底）
     const timeW = (adStats.W / 1000).toFixed(1);
     const timeL = (adStats.L / 1000).toFixed(1);
     const timeP = (adStats.P / 1000).toFixed(1);
     const randomCode = Math.floor(Math.random() * 900) + 100;
     const finalCode = `W${timeW}-L${timeL}-P${timeP}-${randomCode}`;
-
     document.getElementById('code-display').innerText = finalCode;
+}
+
+function confirmFinish() {
+    if (detailPage.classList.contains('active')) {
+        // 结算
+        if (currentTrackingProduct) {
+            const duration = Date.now() - currentTrackingStart;
+            adStats[currentTrackingProduct] += duration;
+            currentTrackingProduct = null;
+        }
+        mainVideo.pause();
+    }
     
-    actionBtns.style.display = 'none';
-    resultArea.style.display = 'block';
+    generateCode();
+    
+    document.getElementById('action-btns').style.display = 'none';
+    document.getElementById('result-area').style.display = 'block';
+    document.querySelector('#result-modal h3').innerText = "实验结束";
+    document.querySelector('#result-modal p').innerText = "请复制下方代码填入问卷";
 }
 
 function copyCode() {

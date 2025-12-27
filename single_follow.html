@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>单列实验 - 关注页全交互版</title>
+<title>单列实验 - 关注页(流畅版)</title>
 <style>
 /* --- 样式保持不变 --- */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -45,6 +45,25 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 }
 @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
 
+/* 新增：播放/暂停 中央图标 */
+.play-status-icon {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 60px; height: 60px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 50%;
+    color: white;
+    font-size: 30px;
+    display: flex; justify-content: center; align-items: center;
+    z-index: 5;
+    opacity: 0; /* 默认隐藏（播放时） */
+    transition: opacity 0.2s;
+    pointer-events: none; /* 让点击穿透 */
+}
+/* 当父容器有 paused 类时，显示图标 */
+.fs-video-item.paused .play-status-icon {
+    opacity: 1;
+}
+
 .click-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 .overlay { position:absolute; bottom:0; left:0; width:100%; padding:40px 15px; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); pointer-events:none; color:#fff; z-index: 2;}
 .sidebar-fs { position:absolute; right:10px; bottom:120px; display:flex; flex-direction:column; gap:22px; pointer-events:auto; z-index: 10;}
@@ -66,13 +85,13 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 .btn-cancel { flex: 1; padding: 10px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer; color: #666; }
 .btn-confirm { flex: 1; padding: 10px; border: none; background: #25D366; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; }
 
-/* --- 新增：顶部导航栏样式 --- */
+/* 顶部导航栏样式 */
 .top-nav-bar {
     position: fixed; top: 0; left: 0; width: 100%; height: 60px;
-    z-index: 50; /* 在视频上层，mask下层 */
+    z-index: 50; 
     display: flex; justify-content: center; align-items: center; gap: 20px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent); /* 顶部渐变阴影，防止视频背景太亮看不清字 */
-    pointer-events: none; /* 让点击穿透，不影响视频播放 */
+    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
+    pointer-events: none;
 }
 .nav-item {
     font-size: 17px; font-weight: 600; 
@@ -90,7 +109,7 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
     color: #ffffff;
     font-size: 18px;
     font-weight: 800;
-    border-bottom: 2px solid #fff; /* 下划线指示 */
+    border-bottom: 2px solid #fff;
     padding-bottom: 4px;
 }
 </style>
@@ -194,10 +213,13 @@ videoData.forEach((item, idx) => {
         f.dataset.product = item.adProduct; 
     }
     
-    // HTML结构中加入了 .star-btn
+    // HTML调整：加入 play-status-icon，并使用 data-src
     f.innerHTML = `
-        <video data-src="${item.url}" loop playsinline webkit-playsinline x5-video-player-type="h5" x5-playsinline="true" preload="none"></video>
+        <video data-src="${item.url}" loop playsinline webkit-playsinline x5-video-player-type="h5" x5-playsinline="true" preload="auto"></video>
+        
+        <div class="play-status-icon">▶</div>
         <div class="loading-spinner"></div>
+        
         <div class="click-layer"></div>
         <div class="overlay"><div style="font-weight:700;margin-bottom:5px;">@用户_${1000+idx}</div><div>${item.desc}</div></div>
         <div class="sidebar-fs">
@@ -211,18 +233,24 @@ videoData.forEach((item, idx) => {
     const video = f.querySelector('video');
     const spinner = f.querySelector('.loading-spinner');
     
+    // 状态监听
     video.addEventListener('waiting', () => { spinner.style.display = 'block'; });
     video.addEventListener('playing', () => { spinner.style.display = 'none'; });
     video.addEventListener('canplay', () => { spinner.style.display = 'none'; });
     video.addEventListener('error', () => { spinner.style.display = 'block'; });
 
-    // 交互逻辑
+    // 核心修改：点击时切换播放状态，并切换父容器的 class 来控制图标显隐
     f.querySelector('.click-layer').onclick = () => {
         if(!video.src) return;
-        if(video.paused) video.play(); else video.pause();
+        if(video.paused) {
+            video.play();
+            f.classList.remove('paused'); // 移除暂停样式，隐藏图标
+        } else {
+            video.pause();
+            f.classList.add('paused'); // 添加暂停样式，显示图标
+        }
     };
     f.querySelector('.heart-btn').onclick = (e) => { e.stopPropagation(); e.target.classList.toggle('liked'); };
-    // 新增：收藏交互逻辑
     f.querySelector('.star-btn').onclick = (e) => { e.stopPropagation(); e.target.classList.toggle('active'); };
     f.querySelector('.comment-btn').onclick = (e) => { e.stopPropagation(); alert('评论功能暂未开放'); };
     f.querySelector('.share-btn').onclick = (e) => { e.stopPropagation(); alert('链接已复制'); };
@@ -231,7 +259,7 @@ videoData.forEach((item, idx) => {
     fsVideoElements.push(f);
 });
 
-// --- 3. 核心功能 ---
+// --- 3. 核心功能：链式加载 (解决黑屏的关键) ---
 let isExperimentStarted = false;
 let currentActiveIndex = -1;
 
@@ -239,28 +267,56 @@ let adStats = { "W": 0, "L": 0, "P": 0 };
 let currentAdProduct = null;
 let currentAdStartTime = 0;
 
-function loadAndPlay(index) {
-    if (index < 0 || index >= fsVideoElements.length) return;
-    const item = fsVideoElements[index];
-    const vid = item.querySelector('video');
-    currentActiveIndex = index;
+// 新增：自动排队加载视频，不依赖滑动
+// 这会保证后面的视频在网速允许的情况下尽快下载
+function startSequentialLoading(idx) {
+    if (idx >= fsVideoElements.length) return; // 加载完毕
+
+    const container = fsVideoElements[idx];
+    const vid = container.querySelector('video');
 
     if (!vid.getAttribute('src') && vid.dataset.src) {
+        // 赋予 src，开始下载
         vid.src = vid.dataset.src;
-        vid.load();
+        // console.log("开始预加载视频:", idx);
+        
+        // 监听：当当前视频缓冲了一点数据后，立刻去加载下一个
+        // 使用 once: true 确保只触发一次
+        vid.addEventListener('loadedmetadata', () => {
+            startSequentialLoading(idx + 1);
+        }, { once: true });
+        
+        // 容错：万一卡住，0.5秒后强制加载下一个
+        setTimeout(() => {
+            if (idx + 1 < fsVideoElements.length && !fsVideoElements[idx+1].querySelector('video').src) {
+                startSequentialLoading(idx + 1);
+            }
+        }, 500);
+    } else {
+        // 如果已经加载过，直接检查下一个
+        startSequentialLoading(idx + 1);
     }
-    vid.muted = false;
-    vid.play().catch(e => {});
 }
 
-function preloadNext(index) {
-    if (index + 1 < fsVideoElements.length) {
-        const nextVid = fsVideoElements[index + 1].querySelector('video');
-        if (!nextVid.getAttribute('src')) {
-            nextVid.src = nextVid.dataset.src;
-            nextVid.preload = "auto";
-        }
+// 播放逻辑 (仅控制播放/暂停，不负责加载)
+function playVideo(index) {
+    if (index < 0 || index >= fsVideoElements.length) return;
+    const container = fsVideoElements[index];
+    const vid = container.querySelector('video');
+    currentActiveIndex = index;
+
+    // 确保有src (虽然链式加载应该已经加上了，这里是双重保险)
+    if (!vid.src && vid.dataset.src) {
+        vid.src = vid.dataset.src;
     }
+    
+    vid.muted = false;
+    // 播放时移除暂停图标
+    container.classList.remove('paused');
+    vid.play().catch(e => {
+        // 如果自动播放失败，显示暂停图标引导点击
+        container.classList.add('paused');
+    });
 }
 
 const observer = new IntersectionObserver(entries => {
@@ -273,9 +329,9 @@ const observer = new IntersectionObserver(entries => {
         const prod = container.dataset.product;
 
         if(entry.isIntersecting) {
+            // 滑入：播放
             if (isExperimentStarted) {
-                loadAndPlay(index);
-                v.onplaying = () => { preloadNext(index); };
+                playVideo(index);
                 
                 if (isAd) {
                     currentAdProduct = prod;
@@ -283,9 +339,10 @@ const observer = new IntersectionObserver(entries => {
                 }
             }
         } else {
+            // 滑出：暂停并重置状态
             v.pause();
-            v.onplaying = null;
-
+            container.classList.remove('paused'); // 滑出后重置UI，不要留着暂停图标
+            
             if (isAd && currentAdProduct === prod) {
                 const duration = Date.now() - currentAdStartTime;
                 adStats[prod] += duration;
@@ -297,20 +354,15 @@ const observer = new IntersectionObserver(entries => {
 
 fsVideoElements.forEach(el => observer.observe(el));
 
-setInterval(() => {
-    if (!isExperimentStarted || currentActiveIndex === -1) return;
-    const activeItem = fsVideoElements[currentActiveIndex];
-    if (!activeItem) return;
-    const v = activeItem.querySelector('video');
-    if (v.src && v.paused && !v.ended && v.readyState > 2) {
-        v.play().catch(e => {});
-    }
-}, 500);
-
 document.getElementById('start-btn').addEventListener('click', function() {
     isExperimentStarted = true;
     document.getElementById('start-mask').style.display = 'none';
-    loadAndPlay(0);
+    
+    // 1. 立即播放第一个
+    playVideo(0);
+    
+    // 2. 启动链式预加载，一次性按顺序把后面都加载了
+    startSequentialLoading(0);
 });
 
 // --- 4. 弹窗与结算逻辑 ---
@@ -327,7 +379,6 @@ function hideModal() {
 }
 
 function confirmFinish() {
-    // 结算最后可能未结束的广告
     if (currentAdProduct) {
         const duration = Date.now() - currentAdStartTime;
         adStats[currentAdProduct] += duration;

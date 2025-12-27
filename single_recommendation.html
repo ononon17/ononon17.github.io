@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>单列实验 - 推荐页(直入版)</title>
+<title>单列实验 - 推荐页(直入控时版)</title>
 <style>
-/* --- 样式 --- */
+/* --- 基础样式 --- */
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans-serif; overflow: hidden; height: 100vh; width: 100vw; position: fixed;}
 
-/* 删除 start-mask 相关样式 */
-
+/* 全屏容器 */
 #fullscreen-page-container { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     z-index: 2; background-color:#000; 
@@ -37,33 +36,40 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 }
 @keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
 
-/* 播放/暂停 状态图标 */
+/* 播放/暂停 中央图标 */
 .play-status-icon {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 70px; height: 70px;
-    background: rgba(0, 0, 0, 0.4); 
+    width: 60px; height: 60px;
+    background: rgba(0, 0, 0, 0.4);
     border-radius: 50%;
     color: white;
     font-size: 30px;
     display: flex; justify-content: center; align-items: center;
     z-index: 5;
-    opacity: 0; /* 默认隐藏 */
+    opacity: 0; 
     transition: opacity 0.2s;
-    pointer-events: none;
+    pointer-events: none; 
 }
 .fs-video-item.paused .play-status-icon { opacity: 1; }
 
+/* 交互层与UI */
 .click-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
 .overlay { position:absolute; bottom:0; left:0; width:100%; padding:40px 15px; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); pointer-events:none; color:#fff; z-index: 2;}
 .sidebar-fs { position:absolute; right:10px; bottom:120px; display:flex; flex-direction:column; gap:22px; pointer-events:auto; z-index: 10;}
 .icon-btn-fs { width:48px; height:48px; background:rgba(255,255,255,0.15); border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:22px; backdrop-filter:blur(10px); color: #ffffff; cursor:pointer;}
 
-/* 交互反馈颜色 */
 .heart-btn.liked { color: #ff2442; } 
-.star-btn.active { color: #007bff; }
+.star-btn.active { color: #007bff; } 
 
-/* 结束浮窗 */
-.floating-finish-btn { position: fixed; right: 20px; bottom: 30px; z-index: 999; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+/* 结束浮窗 - 默认隐藏 (3分钟强制弹窗被关闭后才会显示) */
+.floating-finish-btn { 
+    position: fixed; right: 20px; bottom: 30px; z-index: 999; 
+    width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; 
+    display: none; 
+    flex-direction: column; align-items: center; justify-content: center; 
+    font-size: 12px; font-weight: bold; cursor: pointer; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3); 
+}
 
 /* 确认弹窗样式 */
 #result-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; }
@@ -87,20 +93,8 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
     text-shadow: 0 1px 2px rgba(0,0,0,0.3);
     transition: all 0.3s;
 }
-/* 关注：灰色/弱化 */
-.nav-item.inactive {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 16px;
-    font-weight: 500;
-}
-/* 推荐：高亮/白色 */
-.nav-item.active {
-    color: #ffffff;
-    font-size: 18px;
-    font-weight: 800;
-    border-bottom: 2px solid #fff;
-    padding-bottom: 4px;
-}
+.nav-item.inactive { color: rgba(255, 255, 255, 0.6); font-size: 16px; font-weight: 500; }
+.nav-item.active { color: #ffffff; font-size: 18px; font-weight: 800; border-bottom: 2px solid #fff; padding-bottom: 4px; }
 </style>
 </head>
 <body>
@@ -114,12 +108,12 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
     <div id="fullscreen-feed"></div>
 </div>
 
-<div class="floating-finish-btn" onclick="showModal()">✔<br>结束</div>
+<div class="floating-finish-btn" id="float-btn" onclick="showManualFinish()">✔<br>结束</div>
 
 <div id="result-modal">
     <div class="modal-content">
-        <h3 style="margin-bottom: 5px;">确认结束实验?</h3>
-        <p style="font-size:12px; color:#666;">点击确认后将停止计时并生成验证码</p>
+        <h3 id="modal-title" style="margin-bottom: 5px;">确认结束实验?</h3>
+        <p id="modal-desc" style="font-size:12px; color:#666;">点击确认后将停止计时并生成验证码</p>
         
         <div id="result-area" style="display:none;">
             <div class="code-box" id="code-display"></div>
@@ -127,14 +121,14 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
         </div>
 
         <div class="modal-btns" id="action-btns">
-            <button class="btn-cancel" onclick="hideModal()">❌ 取消返回</button>
-            <button class="btn-confirm" onclick="confirmFinish()">✅ 确认提交</button>
+            <button class="btn-cancel" id="btn-cancel" onclick="hideModal()">❌ 取消返回</button>
+            <button class="btn-confirm" id="btn-confirm" onclick="confirmFinish()">✅ 确认提交</button>
         </div>
     </div>
 </div>
 
 <script>
-// --- 1. 数据定义 (阿里云链接) ---
+// --- 1. 数据定义 ---
 const rawData = [
      { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%863%20%282%29.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%861%20%281%29.mov", desc: "讲真，看到这片云，你的心情变好了吗？☁️" },
@@ -196,8 +190,6 @@ videoData.forEach((item, idx) => {
         f.dataset.product = item.adProduct; 
     }
     
-    // HTML修改：加入播放状态图标，并使用 data-src
-    // video标签增加了 preload="auto" 配合后续的链式加载
     f.innerHTML = `
         <video data-src="${item.url}" loop playsinline webkit-playsinline x5-video-player-type="h5" x5-playsinline="true" preload="auto"></video>
         
@@ -223,15 +215,15 @@ videoData.forEach((item, idx) => {
     video.addEventListener('canplay', () => { spinner.style.display = 'none'; });
     video.addEventListener('error', () => { spinner.style.display = 'block'; });
 
-    // 交互逻辑：点击控制播放/暂停，并切换图标状态
+    // 点击交互
     f.querySelector('.click-layer').onclick = () => {
         if(!video.src) return;
         if(video.paused) {
             video.play();
-            f.classList.remove('paused'); // 移除暂停样式，隐藏图标
+            f.classList.remove('paused'); 
         } else {
             video.pause();
-            f.classList.add('paused'); // 添加暂停样式，显示图标
+            f.classList.add('paused'); 
         }
     };
     f.querySelector('.heart-btn').onclick = (e) => { e.stopPropagation(); e.target.classList.toggle('liked'); };
@@ -243,27 +235,24 @@ videoData.forEach((item, idx) => {
     fsVideoElements.push(f);
 });
 
-// --- 3. 核心功能：全量顺序加载 & 播放控制 ---
+// --- 3. 播放与统计逻辑 ---
+let isExperimentStarted = false;
 let currentActiveIndex = -1;
-
 let adStats = { "W": 0, "L": 0, "P": 0 };
 let currentAdProduct = null;
 let currentAdStartTime = 0;
 
-// 新功能：链式自动加载 (解决黑屏)
+// 链式加载
 function startSequentialLoading(idx) {
-    if (idx >= fsVideoElements.length) return; 
+    if (idx >= fsVideoElements.length) return;
+    const container = fsVideoElements[idx];
+    const vid = container.querySelector('video');
 
-    const vid = fsVideoElements[idx].querySelector('video');
-    
-    if (vid.dataset.src && !vid.src) {
-        vid.src = vid.dataset.src; // 赋值 src，开始下载
-        // 当这个视频元数据加载完，立刻去加载下一个
+    if (!vid.getAttribute('src') && vid.dataset.src) {
+        vid.src = vid.dataset.src;
         vid.addEventListener('loadedmetadata', () => {
             startSequentialLoading(idx + 1);
         }, { once: true });
-        
-        // 双保险：万一元数据加载慢，500ms后强行加载下一个
         setTimeout(() => {
             if (idx + 1 < fsVideoElements.length && !fsVideoElements[idx+1].querySelector('video').src) {
                 startSequentialLoading(idx + 1);
@@ -274,20 +263,20 @@ function startSequentialLoading(idx) {
     }
 }
 
-// 播放控制
 function playVideo(index) {
     if (index < 0 || index >= fsVideoElements.length) return;
     const container = fsVideoElements[index];
     const vid = container.querySelector('video');
     currentActiveIndex = index;
 
-    // 确保有src
     if (!vid.src && vid.dataset.src) vid.src = vid.dataset.src;
     
     vid.muted = false;
-    container.classList.remove('paused'); // 确保没有暂停图标
+    container.classList.remove('paused');
+    
+    // 自动播放
     vid.play().catch(e => {
-        // 如果自动播放被阻止，显示播放图标
+        console.log("Auto-play blocked, waiting for interaction.");
         container.classList.add('paused');
     });
 }
@@ -303,17 +292,17 @@ const observer = new IntersectionObserver(entries => {
 
         if(entry.isIntersecting) {
             // 滑入：播放
-            playVideo(index);
-            
-            if (isAd) {
-                currentAdProduct = prod;
-                currentAdStartTime = Date.now();
+            if (isExperimentStarted) {
+                playVideo(index);
+                if (isAd) {
+                    currentAdProduct = prod;
+                    currentAdStartTime = Date.now();
+                }
             }
         } else {
-            // 滑出：暂停并重置状态
+            // 滑出：暂停
             v.pause();
-            container.classList.remove('paused'); // 重置UI状态
-            
+            container.classList.remove('paused'); 
             if (isAd && currentAdProduct === prod) {
                 const duration = Date.now() - currentAdStartTime;
                 adStats[prod] += duration;
@@ -325,35 +314,87 @@ const observer = new IntersectionObserver(entries => {
 
 fsVideoElements.forEach(el => observer.observe(el));
 
-// --- 自动启动逻辑 (无需点击开始) ---
+// --- 4. 实验控制逻辑 (直入模式 + 3分钟强制) ---
+
+// 设置实验时长 3分钟 = 180000 毫秒
+const EXPERIMENT_DURATION = 180000; 
+
+// 页面加载完毕后立即启动
 window.addEventListener('DOMContentLoaded', () => {
-    // 1. 播放第一个 (可能会被浏览器拦截，如果拦截则显示▶)
+    isExperimentStarted = true;
+    
+    // 1. 尝试播放第一个
     playVideo(0);
-    // 2. 启动后台全量下载
+    // 2. 开始后台下载
     startSequentialLoading(0);
+    // 3. 启动3分钟倒计时
+    setTimeout(forceTimeUp, EXPERIMENT_DURATION);
 });
 
-// --- 4. 弹窗与结算逻辑 ---
+// 强制时间到
+function forceTimeUp() {
+    // 暂停所有视频
+    fsVideoElements.forEach(el => el.querySelector('video').pause());
+
+    // 生成代码并显示
+    generateCode();
+    
+    // 修改弹窗文案
+    document.querySelector('#result-modal h3').innerText = "浏览体验已完成";
+    document.querySelector('#result-modal p').innerText = "感谢您的参与，请复制下方代码。";
+    
+    // 显示结果区域
+    document.getElementById('action-btns').style.display = 'none'; 
+    document.getElementById('result-area').style.display = 'block';
+    
+    // 显示“暂不提交”按钮逻辑
+    const actionArea = document.getElementById('action-btns');
+    actionArea.style.display = 'flex';
+    document.getElementById('btn-confirm').style.display = 'none'; 
+    
+    const cancelBtn = document.getElementById('btn-cancel');
+    cancelBtn.innerText = "暂不提交，继续浏览";
+    cancelBtn.onclick = function() {
+        hideModal();
+        // 用户选择继续浏览后，显示右下角的浮动按钮
+        document.getElementById('float-btn').style.display = 'flex';
+        // 恢复播放
+        if(currentActiveIndex !== -1) playVideo(currentActiveIndex);
+    };
+
+    showModal();
+}
+
+// 手动点击浮动按钮结束
+function showManualFinish() {
+    // 恢复弹窗默认状态
+    document.querySelector('#result-modal h3').innerText = "确认结束实验?";
+    document.querySelector('#result-modal p').innerText = "点击确认后将停止计时并生成验证码";
+    document.getElementById('result-area').style.display = 'none';
+    document.getElementById('action-btns').style.display = 'flex';
+    document.getElementById('btn-confirm').style.display = 'block';
+    document.getElementById('btn-cancel').innerText = "❌ 取消返回";
+    document.getElementById('btn-cancel').onclick = hideModal;
+
+    showModal();
+}
+
+// 弹窗控制
 const modal = document.getElementById('result-modal');
-const resultArea = document.getElementById('result-area');
-const actionBtns = document.getElementById('action-btns');
-
-function showModal() {
-    modal.style.display = 'flex';
+function showModal() { modal.style.display = 'flex'; }
+function hideModal() { 
+    modal.style.display = 'none'; 
+    if(currentActiveIndex !== -1 && isExperimentStarted) playVideo(currentActiveIndex);
 }
 
-function hideModal() {
-    modal.style.display = 'none';
-}
-
-function confirmFinish() {
+// 生成验证码
+function generateCode() {
+    // 结算最后一次广告时间
     if (currentAdProduct) {
         const duration = Date.now() - currentAdStartTime;
         adStats[currentAdProduct] += duration;
         currentAdProduct = null; 
     }
-
-    fsVideoElements.forEach(el => el.querySelector('video').pause());
 
     const timeW = (adStats.W / 1000).toFixed(1);
     const timeL = (adStats.L / 1000).toFixed(1);
@@ -362,10 +403,14 @@ function confirmFinish() {
     const finalCode = `W${timeW}-L${timeL}-P${timeP}-${randomCode}`;
 
     document.getElementById('code-display').innerText = finalCode;
+}
+
+function confirmFinish() {
+    fsVideoElements.forEach(el => el.querySelector('video').pause());
+    generateCode();
     
-    actionBtns.style.display = 'none';
-    resultArea.style.display = 'block';
-    
+    document.getElementById('action-btns').style.display = 'none';
+    document.getElementById('result-area').style.display = 'block';
     document.querySelector('#result-modal h3').innerText = "实验结束";
     document.querySelector('#result-modal p').innerText = "请复制下方代码填入问卷";
 }

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>浏览页面 - 单列沉浸式实验</title>
+<style>
+/* --- 全局样式 --- */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans-serif; overflow: hidden; height: 100vh; width: 100vw; position: fixed;}
+
+/* 启动蒙层（解决自动播放声音的关键） */
+#start-mask {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; z-index: 9999;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    color: #fff;
+}
+#start-btn {
+    padding: 15px 40px; background: #fe2c55; border: none; border-radius: 4px;
+    color: #fff; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer;
+}
+
+#fullscreen-page-container { 
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    z-index: 2; background-color:#000; 
+    scroll-snap-type: y mandatory; /* 强制吸附 */
+    overflow-y: scroll; 
+    height: 100vh;
+}
+#fullscreen-page-container::-webkit-scrollbar { display: none; }
+
+.fs-video-item { 
+    position:relative; width:100vw; height:100vh; 
+    scroll-snap-align: start; scroll-snap-stop: always; 
+    display:flex; justify-content:center; align-items:center; background:#000; 
+}
+.fs-video-item video { width:100%; height:100%; object-fit:cover; background: #000; display: block;}
+
+/* 加载动画 */
+.loading-spinner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 40px; height: 40px;
+    border: 4px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 4px solid #fff;
+    animation: spin 1s linear infinite; z-index: 4; display: none;
+}
+@keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
+
+/* 交互层 UI */
+.click-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
+.overlay { position:absolute; bottom:0; left:0; width:100%; padding:40px 15px; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); pointer-events:none; color:#fff; z-index: 2;}
+.sidebar-fs { position:absolute; right:10px; bottom:120px; display:flex; flex-direction:column; gap:22px; pointer-events:auto; z-index: 10;}
+
+/* 按钮与红心 */
+.icon-btn-fs { 
+    width:48px; height:48px; background:rgba(255,255,255,0.15); border-radius:50%; 
+    display:flex; justify-content:center; align-items:center; font-size:22px; 
+    backdrop-filter:blur(10px); color: #ffffff; cursor:pointer;
+    transition: transform 0.1s, color 0.2s; 
+}
+.icon-btn-fs:active { transform: scale(0.85); background:rgba(255,255,255,0.3); }
+.heart-btn.liked { color: #ff2442 !important; animation: heartBeat 0.3s ease-in-out; }
+@keyframes heartBeat { 0% { transform: scale(1); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+/* 结束按钮 */
+.floating-finish-btn { position: fixed; right: 20px; bottom: 30px; z-index: 999; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer; transition: transform 0.1s; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+.floating-finish-btn:active { transform: scale(0.9); }
+
+/* 弹窗 */
+#result-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; }
+.modal-content { background: #fff; padding: 30px; border-radius: 15px; width: 85%; max-width: 320px; text-align: center; position: relative; }
+.close-modal-btn { position: absolute; top: 10px; right: 15px; font-size: 28px; color: #999; cursor: pointer; line-height: 1; padding: 5px; }
+.code-box { background: #f0f0f0; padding: 15px; margin: 15px 0; font-weight: bold; font-size: 18px; word-break: break-all; border-radius: 8px; border: 1px dashed #ccc;}
+</style>
+</head>
+<body>
+
+<div id="start-mask">
+    <h2>实验准备就绪</h2>
+    <p style="margin: 10px 0; opacity: 0.7; font-size: 14px;">请开启手机音量</p>
+    <button id="start-btn">点击开始浏览</button>
+</div>
+
+<div id="fullscreen-page-container">
+    <div id="fullscreen-feed"></div>
+</div>
+
+<div class="floating-finish-btn" onclick="openModal()">✔<br>结束</div>
+
+<div id="result-modal">
+    <div class="modal-content">
+        <div class="close-modal-btn" onclick="closeModal()">×</div>
+        <h3 style="margin-bottom:10px; margin-top:5px;">实验结束</h3>
+        <p style="font-size:13px; color:#666; margin-bottom:10px;">请复制下方验证码并返回问卷：</p>
+        <div class="code-box" id="code-display"></div>
+        <button onclick="copyCode()" style="width:100%; padding:12px; background:#25D366; color:white; border:none; border-radius:8px; font-weight:bold;">复制验证码</button>
+    </div>
+</div>
+
+<script>
+// --- 1. 数据定义 (完整保留您的数据) ---
+const rawData = [
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%863.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%861.mov", desc: "讲真，看到这片云，你的心情变好了吗？☁️" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%8610.mov", desc: "这种慢节奏的古镇生活，是你向往的吗？🍵" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%862.mov", desc: "你有多久没有给自己放个假了？✈️" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%864.mov", desc: "猜猜这是大理的哪个角落？去过的举手🙋" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%865.MOV", desc: "这种天气，最适合发呆了，你觉得呢？☀️" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%866.mov", desc: "如果生活太累，就来这里躲一躲吧🏠" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%867.mov", desc: "这里的日落是不是很治愈？🌄" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%868.MOV", desc: "听，这是大理的声音，你喜欢吗？🌊" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%A4%A7%E7%90%869.mov", desc: "答应我，这辈子一定要去一次大理好吗？🤝" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A91.mov", desc: "它的眼神有没有融化你的心？太乖了🥺" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A92.mov", desc: "我就问一句，谁能拒绝这样的小狗？🐶" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A93.mov", desc: "上班累了？看这个视频回回血🔋" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E5%AE%A0%E7%89%A94.mov", desc: "你是猫派还是狗派？评论区告诉我🐱🐶" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A51.mov", desc: "这种专注的感觉，你羡慕吗？🧶" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A52.mov", desc: "猜猜最后成品会是什么样子？🤔" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E5%B7%A53.mov", desc: "周末宅家做手工，是不是很解压？✂️" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B1.mov", desc: "强迫症表示看完这个视频极度舒适！✨" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B2.mov", desc: "这种丝滑的感觉，能不能治好你的精神内耗？🧠" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E8%A7%A3%E5%8E%8B3.mov", desc: "深夜睡不着？看这个视频助眠吧😴" }
+];
+const adData = [
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E8%A1%A8.mov", desc: "都在问链接？这款表的设计感真的绝了✨", adProduct: "W" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%B6%A6%E8%82%A4%E4%B9%B3.mov", desc: "换季皮肤干燥？试试这个，亲测好用！💧", adProduct: "L" },
+    { url: "https://gitee.com/ononon17/interface-layout/raw/master/%E6%89%8B%E6%9C%BA.mov", desc: "随手一拍就是大片，这像素你打几分？📷", adProduct: "P" }
+];
+
+// --- 2. 随机洗牌 + 广告锁定 (顺序逻辑优化) ---
+function assembleVideoData() {
+    // 1. 先把内容视频随机打乱，保证实验随机性
+    let contents = [...rawData];
+    for (let i = contents.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [contents[i], contents[j]] = [contents[j], contents[i]];
+    }
+    
+    // 2. 插入广告到固定位置 (index 5, 11, 17)
+    let final = [];
+    let cIdx = 0;
+    for (let i = 0; i < 23; i++) {
+        if (i === 5) final.push({...adData[0], type: "ad"}); 
+        else if (i === 11) final.push({...adData[1], type: "ad"});
+        else if (i === 17) final.push({...adData[2], type: "ad"});
+        else {
+            if (cIdx < contents.length) {
+                final.push({...contents[cIdx++], type: "content"});
+            }
+        }
+    }
+    return final;
+}
+const videoData = assembleVideoData();
+
+// --- 3. 渲染页面 ---
+const fsFeed = document.getElementById('fullscreen-feed');
+const fsContainer = document.getElementById('fullscreen-page-container');
+let fsVideoElements = [];
+
+// 创建视频元素的函数
+videoData.forEach((item, idx) => {
+    const f = document.createElement('div');
+    f.className = 'fs-video-item';
+    f.id = `video-item-${idx}`;
+    if(item.type === "ad") { f.dataset.isAd = "true"; f.dataset.product = item.adProduct; }
+    
+    // 关键优化：使用 data-src 而非 src，实现懒加载
+    // playsinline, muted, loop 是标准配置
+    f.innerHTML = `
+        <video data-src="${item.url}" loop playsinline webkit-playsinline x5-video-player-type="h5" x5-playsinline="true"></video>
+        <div class="loading-spinner"></div>
+        <div class="click-layer"></div>
+        <div class="overlay"><div style="font-weight:700;margin-bottom:5px;">@用户_${1000+idx}</div><div>${item.desc}</div></div>
+        <div class="sidebar-fs">
+            <div class="icon-btn-fs heart-btn">❤</div>
+            <div class="icon-btn-fs comment-btn">💬</div>
+            <div class="icon-btn-fs share-btn">🔗</div>
+        </div>
+    `;
+    
+    // 基础交互
+    const video = f.querySelector('video');
+    const spinner = f.querySelector('.loading-spinner');
+    const heart = f.querySelector('.heart-btn');
+    const clickLayer = f.querySelector('.click-layer');
+
+    // 监听加载状态
+    video.addEventListener('waiting', () => { spinner.style.display = 'block'; });
+    video.addEventListener('playing', () => { spinner.style.display = 'none'; });
+    video.addEventListener('canplay', () => { spinner.style.display = 'none'; });
+
+    // 单击暂停/播放 (保留手动控制权)
+    clickLayer.onclick = () => {
+        if (!video.src) return;
+        if (video.paused) video.play();
+        else video.pause();
+    };
+
+    heart.onclick = (e) => { e.stopPropagation(); heart.classList.toggle('liked'); };
+    f.querySelector('.comment-btn').onclick = (e) => { e.stopPropagation(); alert("实验模拟环境暂不支持发表评论。"); };
+    f.querySelector('.share-btn').onclick = (e) => { e.stopPropagation(); alert("链接已复制，分享功能仅供模拟。"); };
+
+    fsFeed.appendChild(f);
+    fsVideoElements.push(f);
+});
+
+// --- 4. 顺序加载与自动有声播放控制 (Core Logic) ---
+let adStats = { "W": 0, "L": 0, "P": 0 };
+let currentStart = 0;
+let currentProd = null;
+let isExperimentStarted = false; // 是否点击了开始按钮
+
+// 预加载函数：按顺序触发下载
+function preloadVideo(index) {
+    if (index < 0 || index >= fsVideoElements.length) return;
+    const item = fsVideoElements[index];
+    const vid = item.querySelector('video');
+    
+    // 只有当没有 src 时才赋值，避免重复请求
+    if (!vid.getAttribute('src') && vid.dataset.src) {
+        console.log("正在预加载第 " + (index+1) + " 个视频");
+        vid.src = vid.dataset.src;
+        vid.preload = "auto"; 
+    }
+}
+
+// 观察者：处理滑动播放
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        const container = entry.target;
+        const v = container.querySelector('video');
+        const prod = container.dataset.product;
+        const currentIndex = fsVideoElements.indexOf(container);
+
+        if(entry.isIntersecting) {
+            // 1. 滑入屏幕：确保有链接
+            if (!v.src) v.src = v.dataset.src;
+            
+            // 2. 只有在点击了“开始”按钮后，才允许有声播放
+            if (isExperimentStarted) {
+                v.muted = false; // 开启声音
+                v.play().catch(e => console.log("播放受阻，可能是交互问题", e));
+            }
+
+            // 3. 顺序预加载机制：
+            // 当我看第N个时，系统确保 N+1 和 N+2 已经开始下载
+            preloadVideo(currentIndex + 1);
+            preloadVideo(currentIndex + 2);
+
+            // 统计广告
+            if(prod) { currentStart = Date.now(); currentProd = prod; }
+
+        } else {
+            // 滑出：暂停并静音
+            v.pause();
+            v.muted = false; // 保持状态，或重置
+            v.currentTime = 0; // 模拟刷过去就重置
+            if(prod && currentProd === prod) {
+                adStats[prod] += (Date.now() - currentStart);
+                currentProd = null;
+            }
+        }
+    });
+}, { threshold: 0.6, root: fsContainer }); // 60%可见才播放
+
+fsVideoElements.forEach(el => observer.observe(el));
+
+// --- 5. 启动控制 (解决声音和加载问题的关键) ---
+document.getElementById('start-btn').addEventListener('click', function() {
+    isExperimentStarted = true;
+    document.getElementById('start-mask').style.display = 'none';
+    
+    // 立即处理第一个视频
+    const firstVid = fsVideoElements[0].querySelector('video');
+    firstVid.src = firstVid.dataset.src;
+    firstVid.muted = false; // 有声
+    firstVid.play();
+    
+    // 立即预加载后续
+    preloadVideo(1);
+    preloadVideo(2);
+});
+
+// --- 6. 弹窗控制 ---
+function openModal() {
+    // 生成假数据用于演示，实际会读取 adStats
+    const code = `FIN-${Math.floor(Math.random()*9000)+1000}`;
+    document.getElementById('code-display').innerText = code;
+    document.getElementById('result-modal').style.display = 'flex';
+    fsVideoElements.forEach(el => el.querySelector('video').pause());
+}
+function closeModal() {
+    document.getElementById('result-modal').style.display = 'none';
+}
+function copyCode() {
+    navigator.clipboard.writeText(document.getElementById('code-display').innerText);
+    alert("验证码已复制！");
+}
+</script>
+</body>
+</html>

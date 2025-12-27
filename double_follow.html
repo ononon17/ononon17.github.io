@@ -3,132 +3,192 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>单列实验 - 关注页(流畅版)</title>
+<title>双列实验 - 关注页终极修复版</title>
 <style>
-/* --- 样式保持不变 --- */
-*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans-serif; overflow: hidden; height: 100vh; width: 100vw; position: fixed;}
+/* --- 全局样式 --- */
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body { background-color: #f8f8f8; color: #333; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; height: 100vh; width: 100vw; overflow: hidden; }
 
-#start-mask {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    background: #000; z-index: 9999;
-    display: flex; flex-direction: column; justify-content: center; align-items: center; color: #fff;
-}
-#start-btn {
-    padding: 15px 40px; background: #fe2c55; border: none; border-radius: 4px;
-    color: #fff; font-size: 16px; font-weight: bold; margin-top: 20px; cursor: pointer;
-}
-
-#fullscreen-page-container { 
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 2; background-color:#000; 
-    scroll-snap-type: y mandatory; 
+/* --- 1. 双列列表页 --- */
+#home-page {
+    width: 100%; height: 100%;
     overflow-y: scroll; 
-    height: 100vh;
-}
-#fullscreen-page-container::-webkit-scrollbar { display: none; }
-
-.fs-video-item { 
-    position:relative; width:100vw; height:100vh; 
-    scroll-snap-align: start; scroll-snap-stop: always; 
-    display:flex; justify-content:center; align-items:center; background:#000; 
-}
-.fs-video-item video { width:100%; height:100%; object-fit:cover; background: #000; display: block;}
-
-/* 加载动画 */
-.loading-spinner {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 50px; height: 50px;
-    border: 5px solid rgba(255,255,255,0.2); 
-    border-radius: 50%; border-top: 5px solid #fe2c55; 
-    animation: spin 1s linear infinite; z-index: 4; display: none;
-}
-@keyframes spin { 0% { transform: translate(-50%, -50%) rotate(0deg); } 100% { transform: translate(-50%, -50%) rotate(360deg); } }
-
-/* 新增：播放/暂停 中央图标 */
-.play-status-icon {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 60px; height: 60px;
-    background: rgba(0, 0, 0, 0.4);
-    border-radius: 50%;
-    color: white;
-    font-size: 30px;
-    display: flex; justify-content: center; align-items: center;
-    z-index: 5;
-    opacity: 0; /* 默认隐藏（播放时） */
-    transition: opacity 0.2s;
-    pointer-events: none; /* 让点击穿透 */
-}
-/* 当父容器有 paused 类时，显示图标 */
-.fs-video-item.paused .play-status-icon {
-    opacity: 1;
+    background: #f8f8f8;
+    padding-bottom: 80px;
+    display: block;
 }
 
-.click-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-.overlay { position:absolute; bottom:0; left:0; width:100%; padding:40px 15px; background:linear-gradient(to top, rgba(0,0,0,0.8), transparent); pointer-events:none; color:#fff; z-index: 2;}
-.sidebar-fs { position:absolute; right:10px; bottom:120px; display:flex; flex-direction:column; gap:22px; pointer-events:auto; z-index: 10;}
-.icon-btn-fs { width:48px; height:48px; background:rgba(255,255,255,0.15); border-radius:50%; display:flex; justify-content:center; align-items:center; font-size:22px; backdrop-filter:blur(10px); color: #ffffff; cursor:pointer;}
+/* 顶部导航栏容器 */
+.nav-bar {
+    position: sticky; top: 0; z-index: 100;
+    background: #fff; border-bottom: 1px solid #eee;
+    height: 44px; 
+    display: flex; justify-content: center; align-items: center; 
+    gap: 25px; 
+}
 
-/* 交互反馈颜色 */
-.heart-btn.liked { color: #ff2442; } /* 点赞红 */
-.star-btn.active { color: #007bff; } /* 收藏蓝 */
+/* 导航文字样式 */
+.nav-item {
+    transition: all 0.3s;
+    line-height: 1.5;
+    position: relative;
+}
+
+/* “推荐”：弱化样式 */
+.nav-item.inactive {
+    font-size: 15px; 
+    font-weight: 500; 
+    color: #999; 
+}
+
+/* “关注”：高亮样式 */
+.nav-item.active {
+    font-size: 17px; 
+    font-weight: 700; 
+    color: #333; 
+}
+/* 下方的小红条 */
+.nav-item.active::after {
+    content: '';
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: #fe2c55; 
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 2px;
+}
+
+.grid-container {
+    padding: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr; 
+    gap: 6px;
+}
+
+.card-item {
+    background: #fff; border-radius: 8px; overflow: hidden;
+    position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    cursor: pointer;
+}
+
+.card-thumb {
+    width: 100%; aspect-ratio: 3/4; background: #eee; position: relative;
+}
+/* 列表页封面视频样式 */
+.card-thumb video { width: 100%; height: 100%; object-fit: cover; }
+
+.card-info { padding: 8px 10px; }
+.card-title {
+    font-size: 13px; line-height: 1.4; color: #333;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden; text-overflow: ellipsis; margin-bottom: 8px; font-weight: 500;
+}
+.card-meta { display: flex; justify-content: space-between; align-items: center; color: #999; font-size: 12px; }
+.user-info { display: flex; align-items: center; gap: 4px; font-size: 11px; }
+
+/* 网格页的点赞心形 */
+.grid-heart-icon {
+    font-size: 14px; cursor: pointer; transition: transform 0.2s; padding: 2px;
+}
+.grid-heart-icon:active { transform: scale(1.3); }
+.grid-heart-icon.active { color: #ff2442; }
+
+/* --- 2. 详情页全屏播放器 --- */
+#detail-page {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; z-index: 200;
+    transform: translateX(100%); transition: transform 0.25s ease-out;
+    display: flex; flex-direction: column;
+}
+#detail-page.active { transform: translateX(0); }
+
+.detail-video-container {
+    flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #000;
+}
+#main-video { width: 100%; height: 100%; object-fit: contain; }
+
+.back-btn {
+    position: absolute; top: 40px; left: 15px; z-index: 210;
+    width: 32px; height: 32px; background: rgba(0,0,0,0.4); border-radius: 50%;
+    color: white; font-size: 20px; line-height: 28px; text-align: center;
+    cursor: pointer; font-weight: bold;
+}
+
+.detail-sidebar {
+    position: absolute; right: 10px; bottom: 100px;
+    display: flex; flex-direction: column; gap: 20px; color: white; z-index: 205; align-items: center;
+}
+.side-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.side-icon { 
+    font-size: 32px; text-shadow: 0 1px 2px rgba(0,0,0,0.5); 
+    transition: transform 0.2s, color 0.2s; cursor: pointer;
+}
+.side-icon:active { transform: scale(0.8); }
+
+/* 详情页交互状态样式 */
+.side-icon.heart.active { color: #ff2442; } /* 红心 */
+.side-icon.star.active { color: #007bff; }  /* 蓝星 (收藏) */
+
+.detail-overlay {
+    position: absolute; bottom: 0; left: 0; width: 100%;
+    padding: 20px 15px 40px;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    color: white; z-index: 204; pointer-events: none;
+}
 
 /* 结束浮窗 */
-.floating-finish-btn { position: fixed; right: 20px; bottom: 30px; z-index: 999; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+.floating-finish-btn { position: fixed; right: 20px; bottom: 30px; z-index: 999; width: 55px; height: 55px; background: #25D366; color: white; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
 
-/* 确认弹窗样式 */
+/* 结果弹窗 - 包含关闭按钮 */
 #result-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; }
-.modal-content { background: #fff; padding: 30px; border-radius: 15px; width: 85%; max-width: 320px; text-align: center; }
+.modal-content { background: #fff; padding: 25px; border-radius: 12px; width: 85%; max-width: 320px; text-align: center; position: relative;}
 .code-box { background: #f0f0f0; padding: 15px; margin: 15px 0; font-weight: bold; font-family: monospace; font-size: 16px; word-break: break-all; border: 2px dashed #ccc; }
 
 .modal-btns { display: flex; gap: 10px; margin-top: 15px; }
 .btn-cancel { flex: 1; padding: 10px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer; color: #666; }
 .btn-confirm { flex: 1; padding: 10px; border: none; background: #25D366; border-radius: 6px; cursor: pointer; color: white; font-weight: bold; }
-
-/* 顶部导航栏样式 */
-.top-nav-bar {
-    position: fixed; top: 0; left: 0; width: 100%; height: 60px;
-    z-index: 50; 
-    display: flex; justify-content: center; align-items: center; gap: 20px;
-    background: linear-gradient(to bottom, rgba(0,0,0,0.5), transparent);
-    pointer-events: none;
-}
-.nav-item {
-    font-size: 17px; font-weight: 600; 
-    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
-    transition: all 0.3s;
-}
-/* 推荐：淡色 */
-.nav-item.inactive {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 16px;
-    font-weight: 500;
-}
-/* 关注：高亮 */
-.nav-item.active {
-    color: #ffffff;
-    font-size: 18px;
-    font-weight: 800;
-    border-bottom: 2px solid #fff;
-    padding-bottom: 4px;
-}
 </style>
 </head>
 <body>
 
-<div class="top-nav-bar">
-    <div class="nav-item active">关注</div>
-    <div class="nav-item inactive">推荐</div>
+<div id="home-page">
+    <div class="nav-bar">
+        <div class="nav-item active">关注</div>
+        <div class="nav-item inactive">推荐</div>
+    </div>
+    
+    <div class="grid-container" id="grid-feed"></div>
 </div>
 
-<div id="start-mask">
-    <h2>实验准备就绪</h2>
-    <p style="margin: 10px 0; opacity: 0.7; font-size: 14px;">请开启音量，点击下方按钮开始</p>
-    <button id="start-btn">开始浏览</button>
-</div>
+<div id="detail-page">
+    <div class="back-btn" onclick="closeDetail()">‹</div>
+    
+    <div class="detail-video-container">
+        <video id="main-video" loop playsinline webkit-playsinline></video>
+    </div>
 
-<div id="fullscreen-page-container">
-    <div id="fullscreen-feed"></div>
+    <div class="detail-sidebar">
+        <div class="side-item">
+            <div class="side-icon heart" id="detail-heart" onclick="toggleDetailLike()">♥</div>
+        </div>
+        <div class="side-item">
+            <div class="side-icon" onclick="alert('评论功能暂未开放')">💬</div>
+        </div>
+        <div class="side-item">
+            <div class="side-icon star" id="detail-star" onclick="toggleDetailCollect()">★</div>
+        </div>
+        <div class="side-item">
+            <div class="side-icon" onclick="alert('已复制链接')">↪</div>
+        </div>
+    </div>
+    
+    <div class="detail-overlay">
+        <div id="detail-title" style="margin-bottom:8px; font-weight:bold; font-size:15px;"></div>
+        <div id="detail-desc" style="font-size:13px; opacity:0.9;"></div>
+    </div>
 </div>
 
 <div class="floating-finish-btn" onclick="showModal()">✔<br>结束</div>
@@ -140,7 +200,7 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
         
         <div id="result-area" style="display:none;">
             <div class="code-box" id="code-display"></div>
-            <button class="btn-confirm" onclick="copyCode()" style="width:100%; margin-top:10px;">复制验证码</button>
+            <button class="btn-confirm" onclick="copyCode()" style="width:100%">复制验证码</button>
         </div>
 
         <div class="modal-btns" id="action-btns">
@@ -151,9 +211,9 @@ body{background-color:#000;color:#333;font-family:-apple-system, Helvetica, sans
 </div>
 
 <script>
-// --- 1. 数据定义 ---
+// --- 1. 数据定义 (阿里云链接) ---
 const rawData = [
-     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%863%20%282%29.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️" },
+    { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%863%20%282%29.mov", desc: "如果可以，你想和谁一起来大理吹吹风？🌬️" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%861%20%281%29.mov", desc: "讲真，看到这片云，你的心情变好了吗？☁️" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%8610%20%281%29.mov", desc: "这种慢节奏的古镇生活，是你向往的吗？🍵" },
     { url: "https://interfaceexperience.oss-cn-hangzhou.aliyuncs.com/%E5%A4%A7%E7%90%862%20%281%29.mov", desc: "你有多久没有给自己放个假了？✈️" },
@@ -199,173 +259,131 @@ function assembleVideoData() {
 }
 const videoData = assembleVideoData();
 
-// --- 2. 渲染 ---
-const fsFeed = document.getElementById('fullscreen-feed');
-const fsContainer = document.getElementById('fullscreen-page-container');
-let fsVideoElements = [];
+// --- 状态管理 (Interaction State) ---
+const interactionState = new Array(23).fill(null).map(() => ({ liked: false, starred: false }));
 
-videoData.forEach((item, idx) => {
-    const f = document.createElement('div');
-    f.className = 'fs-video-item';
-    f.id = `video-item-${idx}`;
-    if(item.type === "ad") { 
-        f.dataset.isAd = "true"; 
-        f.dataset.product = item.adProduct; 
-    }
+// --- 2. 渲染网格 ---
+const gridFeed = document.getElementById('grid-feed');
+const detailPage = document.getElementById('detail-page');
+const mainVideo = document.getElementById('main-video');
+const detailTitle = document.getElementById('detail-title');
+const detailDesc = document.getElementById('detail-desc');
+const detailHeart = document.getElementById('detail-heart');
+const detailStar = document.getElementById('detail-star');
+
+// 统计变量
+let adStats = { "W": 0, "L": 0, "P": 0 };
+let currentTrackingProduct = null;
+let currentTrackingStart = 0;
+let currentPlayingIndex = -1;
+
+videoData.forEach((item, index) => {
+    const card = document.createElement('div');
+    card.className = 'card-item';
+    card.id = `card-${index}`;
     
-    // HTML调整：加入 play-status-icon，并使用 data-src
-    f.innerHTML = `
-        <video data-src="${item.url}" loop playsinline webkit-playsinline x5-video-player-type="h5" x5-playsinline="true" preload="auto"></video>
-        
-        <div class="play-status-icon">▶</div>
-        <div class="loading-spinner"></div>
-        
-        <div class="click-layer"></div>
-        <div class="overlay"><div style="font-weight:700;margin-bottom:5px;">@用户_${1000+idx}</div><div>${item.desc}</div></div>
-        <div class="sidebar-fs">
-            <div class="icon-btn-fs heart-btn">❤</div>
-            <div class="icon-btn-fs comment-btn">💬</div>
-            <div class="icon-btn-fs star-btn">★</div>
-            <div class="icon-btn-fs share-btn">🔗</div>
+    // 核心修复：强制显示封面图
+    // #t=0.1 : 强制截取第一帧
+    // preload="auto" : 强制手机加载数据
+    card.innerHTML = `
+        <div class="card-thumb">
+            <video src="${item.url}#t=0.1" muted loop playsinline webkit-playsinline x5-video-player-type="h5" x5-playsinline="true" preload="auto" style="pointer-events:none; object-fit: cover;"></video>
+        </div>
+        <div class="card-info">
+            <div class="card-title">${item.desc}</div>
+            <div class="card-meta">
+                <div class="user-info"><span>@用户${1000+index}</span></div>
+                <div class="grid-heart-icon" id="grid-heart-${index}" onclick="toggleGridLike(event, ${index})">
+                    ♥
+                </div>
+            </div>
         </div>
     `;
 
-    const video = f.querySelector('video');
-    const spinner = f.querySelector('.loading-spinner');
-    
-    // 状态监听
-    video.addEventListener('waiting', () => { spinner.style.display = 'block'; });
-    video.addEventListener('playing', () => { spinner.style.display = 'none'; });
-    video.addEventListener('canplay', () => { spinner.style.display = 'none'; });
-    video.addEventListener('error', () => { spinner.style.display = 'block'; });
-
-    // 核心修改：点击时切换播放状态，并切换父容器的 class 来控制图标显隐
-    f.querySelector('.click-layer').onclick = () => {
-        if(!video.src) return;
-        if(video.paused) {
-            video.play();
-            f.classList.remove('paused'); // 移除暂停样式，隐藏图标
-        } else {
-            video.pause();
-            f.classList.add('paused'); // 添加暂停样式，显示图标
-        }
-    };
-    f.querySelector('.heart-btn').onclick = (e) => { e.stopPropagation(); e.target.classList.toggle('liked'); };
-    f.querySelector('.star-btn').onclick = (e) => { e.stopPropagation(); e.target.classList.toggle('active'); };
-    f.querySelector('.comment-btn').onclick = (e) => { e.stopPropagation(); alert('评论功能暂未开放'); };
-    f.querySelector('.share-btn').onclick = (e) => { e.stopPropagation(); alert('链接已复制'); };
-
-    fsFeed.appendChild(f);
-    fsVideoElements.push(f);
+    card.onclick = () => { openDetail(index); };
+    gridFeed.appendChild(card);
 });
 
-// --- 3. 核心功能：链式加载 (解决黑屏的关键) ---
-let isExperimentStarted = false;
-let currentActiveIndex = -1;
+// --- 3. 交互逻辑 (Interaction Logic) ---
 
-let adStats = { "W": 0, "L": 0, "P": 0 };
-let currentAdProduct = null;
-let currentAdStartTime = 0;
+// A. 网格页点赞
+function toggleGridLike(e, index) {
+    e.stopPropagation(); 
+    interactionState[index].liked = !interactionState[index].liked;
+    const icon = document.getElementById(`grid-heart-${index}`);
+    if (interactionState[index].liked) icon.classList.add('active');
+    else icon.classList.remove('active');
+}
 
-// 新增：自动排队加载视频，不依赖滑动
-// 这会保证后面的视频在网速允许的情况下尽快下载
-function startSequentialLoading(idx) {
-    if (idx >= fsVideoElements.length) return; // 加载完毕
+// B. 详情页点赞
+function toggleDetailLike() {
+    if (currentPlayingIndex === -1) return;
+    const index = currentPlayingIndex;
+    interactionState[index].liked = !interactionState[index].liked;
+    
+    if (interactionState[index].liked) detailHeart.classList.add('active');
+    else detailHeart.classList.remove('active');
+    
+    const gridIcon = document.getElementById(`grid-heart-${index}`);
+    if (interactionState[index].liked) gridIcon.classList.add('active');
+    else gridIcon.classList.remove('active');
+}
 
-    const container = fsVideoElements[idx];
-    const vid = container.querySelector('video');
+// C. 详情页收藏 (变蓝)
+function toggleDetailCollect() {
+    if (currentPlayingIndex === -1) return;
+    const index = currentPlayingIndex;
+    interactionState[index].starred = !interactionState[index].starred;
+    
+    if (interactionState[index].starred) detailStar.classList.add('active');
+    else detailStar.classList.remove('active');
+}
 
-    if (!vid.getAttribute('src') && vid.dataset.src) {
-        // 赋予 src，开始下载
-        vid.src = vid.dataset.src;
-        // console.log("开始预加载视频:", idx);
-        
-        // 监听：当当前视频缓冲了一点数据后，立刻去加载下一个
-        // 使用 once: true 确保只触发一次
-        vid.addEventListener('loadedmetadata', () => {
-            startSequentialLoading(idx + 1);
-        }, { once: true });
-        
-        // 容错：万一卡住，0.5秒后强制加载下一个
-        setTimeout(() => {
-            if (idx + 1 < fsVideoElements.length && !fsVideoElements[idx+1].querySelector('video').src) {
-                startSequentialLoading(idx + 1);
-            }
-        }, 500);
-    } else {
-        // 如果已经加载过，直接检查下一个
-        startSequentialLoading(idx + 1);
+// --- 4. 详情页开启/关闭 ---
+
+function openDetail(index) {
+    const item = videoData[index];
+    currentPlayingIndex = index;
+    
+    // 填充内容
+    detailTitle.innerText = `@用户_${1000+index}`;
+    detailDesc.innerText = item.desc;
+    mainVideo.src = item.url;
+    mainVideo.muted = false; 
+    
+    // 还原交互状态
+    if (interactionState[index].liked) detailHeart.classList.add('active');
+    else detailHeart.classList.remove('active');
+    
+    if (interactionState[index].starred) detailStar.classList.add('active');
+    else detailStar.classList.remove('active');
+    
+    mainVideo.play().catch(e => {});
+    detailPage.classList.add('active');
+    
+    // 埋点开始
+    if (item.type === 'ad') {
+        currentTrackingProduct = item.adProduct;
+        currentTrackingStart = Date.now();
     }
 }
 
-// 播放逻辑 (仅控制播放/暂停，不负责加载)
-function playVideo(index) {
-    if (index < 0 || index >= fsVideoElements.length) return;
-    const container = fsVideoElements[index];
-    const vid = container.querySelector('video');
-    currentActiveIndex = index;
-
-    // 确保有src (虽然链式加载应该已经加上了，这里是双重保险)
-    if (!vid.src && vid.dataset.src) {
-        vid.src = vid.dataset.src;
+function closeDetail() {
+    // 埋点结算
+    if (currentTrackingProduct) {
+        const duration = Date.now() - currentTrackingStart;
+        adStats[currentTrackingProduct] += duration;
+        currentTrackingProduct = null;
     }
-    
-    vid.muted = false;
-    // 播放时移除暂停图标
-    container.classList.remove('paused');
-    vid.play().catch(e => {
-        // 如果自动播放失败，显示暂停图标引导点击
-        container.classList.add('paused');
-    });
+
+    mainVideo.pause();
+    mainVideo.src = ""; 
+    detailPage.classList.remove('active');
+    currentPlayingIndex = -1;
 }
 
-const observer = new IntersectionObserver(entries => {
-    entries.forEach(entry => {
-        const container = entry.target;
-        const v = container.querySelector('video');
-        const index = fsVideoElements.indexOf(container);
-        
-        const isAd = container.dataset.isAd === "true";
-        const prod = container.dataset.product;
+// --- 5. 弹窗控制 (带误触防护) ---
 
-        if(entry.isIntersecting) {
-            // 滑入：播放
-            if (isExperimentStarted) {
-                playVideo(index);
-                
-                if (isAd) {
-                    currentAdProduct = prod;
-                    currentAdStartTime = Date.now();
-                }
-            }
-        } else {
-            // 滑出：暂停并重置状态
-            v.pause();
-            container.classList.remove('paused'); // 滑出后重置UI，不要留着暂停图标
-            
-            if (isAd && currentAdProduct === prod) {
-                const duration = Date.now() - currentAdStartTime;
-                adStats[prod] += duration;
-                currentAdProduct = null;
-            }
-        }
-    });
-}, { threshold: 0.6, root: fsContainer });
-
-fsVideoElements.forEach(el => observer.observe(el));
-
-document.getElementById('start-btn').addEventListener('click', function() {
-    isExperimentStarted = true;
-    document.getElementById('start-mask').style.display = 'none';
-    
-    // 1. 立即播放第一个
-    playVideo(0);
-    
-    // 2. 启动链式预加载，一次性按顺序把后面都加载了
-    startSequentialLoading(0);
-});
-
-// --- 4. 弹窗与结算逻辑 ---
 const modal = document.getElementById('result-modal');
 const resultArea = document.getElementById('result-area');
 const actionBtns = document.getElementById('action-btns');
@@ -379,13 +397,13 @@ function hideModal() {
 }
 
 function confirmFinish() {
-    if (currentAdProduct) {
-        const duration = Date.now() - currentAdStartTime;
-        adStats[currentAdProduct] += duration;
-        currentAdProduct = null; 
+    if (detailPage.classList.contains('active') && currentTrackingProduct) {
+        const duration = Date.now() - currentTrackingStart;
+        adStats[currentTrackingProduct] += duration;
+        currentTrackingProduct = null;
     }
 
-    fsVideoElements.forEach(el => el.querySelector('video').pause());
+    mainVideo.pause();
 
     const timeW = (adStats.W / 1000).toFixed(1);
     const timeL = (adStats.L / 1000).toFixed(1);
@@ -397,9 +415,6 @@ function confirmFinish() {
     
     actionBtns.style.display = 'none';
     resultArea.style.display = 'block';
-    
-    document.querySelector('#result-modal h3').innerText = "实验结束";
-    document.querySelector('#result-modal p').innerText = "请复制下方代码填入问卷";
 }
 
 function copyCode() {
